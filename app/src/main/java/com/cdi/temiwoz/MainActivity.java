@@ -90,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
         surfaceHolder.addCallback(this);
 
         robot = Robot.getInstance();
+        robot.setKioskModeOn(true);
         robotApi = new RobotApi(robot, this);// 传入MainActivity实例
         robotApi.setSurfaceHolder(surfaceHolder);
 
