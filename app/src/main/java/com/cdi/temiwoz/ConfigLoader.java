@@ -1,4 +1,4 @@
-package com.alibaba.nls.client;
+package com.cdi.temiwoz;
 
 import java.io.IOException;
 import java.io.InputStream;

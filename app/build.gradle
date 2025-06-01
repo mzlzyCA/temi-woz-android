@@ -20,6 +20,33 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    
+    // 添加Java 8兼容性支持
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    
+    // 添加处理META-INF文件冲突的配置
+    packagingOptions {
+        exclude 'META-INF/INDEX.LIST'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/io.netty.versions.properties'
+        exclude 'META-INF/MANIFEST.MF'
+        exclude 'com/sun/xml/bind/marshaller/Messages_ko.properties'
+        exclude 'com/sun/xml/bind/marshaller/Messages_zh_CN.properties'
+        exclude 'com/sun/xml/bind/marshaller/Messages_zh_TW.properties'
+        exclude 'com/sun/xml/bind/marshaller/Messages_ja.properties'
+        exclude 'com/sun/xml/bind/v2/**'
+        exclude 'com/sun/xml/bind/Messages*.properties'
+    }
 }
 
 repositories {
@@ -37,6 +64,40 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     implementation 'com.robotemi:sdk:0.10.77'
     implementation "org.java-websocket:Java-WebSocket:1.5.1"
+    
+    // 阿里云语音识别SDK
+    implementation 'com.alibaba.nls:nls-sdk-transcriber:2.2.1'
+    implementation 'com.alibaba.nls:nls-sdk-common:2.2.1'
+    
+    // JAXB依赖
+    implementation 'javax.xml.bind:jaxb-api:2.3.1'
+    // implementation 'com.sun.xml.bind:jaxb-core:2.3.0.1'
+    implementation 'com.sun.xml.bind:jaxb-impl:2.3.1'
+    // implementation 'javax.activation:activation:1.1.1'
+
+    // 使用单一的 javax.activation API 版本
+    implementation 'javax.activation:javax.activation-api:1.2.0'
+    
+    // FastJSON
+    implementation 'com.alibaba:fastjson:1.2.41'
+    
+    // Netty相关依赖
+    implementation 'io.netty:netty-transport:4.1.17.Final'
+    implementation 'io.netty:netty-resolver:4.1.17.Final'
+    implementation 'io.netty:netty-handler:4.1.17.Final'
+    implementation 'io.netty:netty-common:4.1.17.Final'
+    implementation 'io.netty:netty-codec-http:4.1.17.Final'
+    implementation 'io.netty:netty-codec:4.1.17.Final'
+    implementation 'io.netty:netty-buffer:4.1.17.Final'
+    
+    // OkHttp相关依赖
+    implementation 'com.squareup.okio:okio:1.13.0'
+    implementation 'com.squareup.okhttp3:okhttp:3.9.1'
+    
+    // 日志相关依赖
+    implementation 'ch.qos.logback:logback-classic:1.0.13'
+    implementation 'ch.qos.logback:logback-core:1.0.13'
+    implementation 'org.slf4j:slf4j-api:1.7.5'
 
     // ...
     // Litho
@@ -56,4 +117,13 @@ dependencies {
 //    annotationProcessor 'com.facebook.litho:litho-sections-processor:0.37.1'
 //
 //    implementation 'com.facebook.fbjni:fbjni:0.0.2'
+
+    // 添加 JavaCPP 和 Java Sound API 支持
+    implementation 'org.bytedeco:javacpp:1.5.7'
+    implementation 'org.bytedeco.javacpp-presets:flandmark:1.07-1.4.4'
+    
+    // 添加阿里云语音SDK必要的音频转换库
+    implementation 'com.googlecode.soundlibs:jlayer:1.0.1.4'
+    implementation 'com.googlecode.soundlibs:mp3spi:1.9.5.4'
+    implementation 'com.googlecode.soundlibs:tritonus-share:0.3.7.4'
 }

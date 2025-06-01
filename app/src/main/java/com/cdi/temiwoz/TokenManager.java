@@ -1,4 +1,4 @@
-package com.alibaba.nls.client;
+package com.cdi.temiwoz;
 
 import com.alibaba.nls.client.AccessToken;
 import org.slf4j.Logger;

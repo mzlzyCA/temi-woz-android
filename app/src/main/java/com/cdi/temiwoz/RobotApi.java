@@ -17,13 +17,14 @@ import com.robotemi.sdk.permission.Permission;
 import com.robotemi.sdk.telepresence.*;
 import com.robotemi.sdk.Robot.TtsListener;
 import com.robotemi.sdk.Robot.AsrListener;
+import com.robotemi.sdk.Robot.WakeupWordListener;
 import com.robotemi.sdk.listeners.OnBeWithMeStatusChangedListener;
 import com.robotemi.sdk.listeners.OnConstraintBeWithStatusChangedListener;
 import com.robotemi.sdk.UserInfo;
 import com.robotemi.sdk.listeners.OnGoToLocationStatusChangedListener;
 import com.robotemi.sdk.listeners.OnDetectionStateChangedListener;
 
-
+import com.cdi.temiwoz.StartAliyunASR;
 
 import org.jetbrains.annotations.NotNull;
 import org.json.*;
@@ -36,6 +37,7 @@ import android.webkit.WebSettings;
 
 public class RobotApi implements TtsListener,
                                  AsrListener,
+                                 WakeupWordListener,
                                  OnGoToLocationStatusChangedListener,
         OnBeWithMeStatusChangedListener,
         OnConstraintBeWithStatusChangedListener,
@@ -75,6 +77,7 @@ public class RobotApi implements TtsListener,
         this.activity = activity;
         robot.addTtsListener(this);
         robot.addAsrListener(this);
+        //robot.addWakeupWordListener(this);
         robot.addOnGoToLocationStatusChangedListener(this);
         robot.addOnBeWithMeStatusChangedListener(this);
         robot.addOnConstraintBeWithStatusChangedListener(this);
@@ -177,6 +180,32 @@ public class RobotApi implements TtsListener,
     public void wakeup(String id){
         robot.wakeup();
     }
+
+    // @Override
+    public void onWakeupWord(String word, int confidence) {
+        System.out.println("Wakeup word detected: " + word);
+        StartAliyunASR.getInstance().process();
+    }
+
+    // @Override
+    // public void addWakeupWordListener(WakeupWordListener listener){
+    //     robot.addWakeupWordListener(listener);
+    // }
+
+    // @Override
+    // public void removeWakeupWordListener(WakeupWordListener listener){
+        
+    // }
+    
+    // @Override
+    // public void addAsrListener(AsrListener listener){
+    //     //
+    // }
+    // @Override
+    // public void removeAsrListener(AsrListener listener){
+
+    // }
+
     public void speak(String sentence, String id) {
         robot.speak(TtsRequest.create(sentence, false));
         speak_id = id;
@@ -341,6 +370,7 @@ public class RobotApi implements TtsListener,
 
     @Override
     public void onAsrResult(@NotNull String text) {
+        System.out.println("onAsrResult: " + text);
         try {
             server.broadcast(new JSONObject()
                 .put("command", "ask")
