@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robot Neutral Expression</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    
+    #expression-container {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    #status-bar {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-size: 12px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="expression-container">
+    <div id="status-bar">
+      <span id="connection-status">Neutral Mode</span>
+    </div>
+    <div id="robot-canvas"></div>
+  </div>
+
+  <script>
+    let canvas, ctx;
+    let animationId;
+    let frameCount = 0;
+    
+    const robotExpression = {
+      currentEmotion: 'neutral',
+      animationPhase: 0,
+      blinkTimer: 0,
+      isBlinking: false,
+      eyeOpenness: 1.0
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initCanvas();
+      startAnimation();
+      triggerHeadMovement();
+    });
+
+    function initCanvas() {
+      canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      canvas.style.display = 'block';
+      canvas.style.maxWidth = '100%';
+      canvas.style.maxHeight = '100%';
+      
+      const container = document.getElementById('robot-canvas');
+      container.appendChild(canvas);
+      
+      ctx = canvas.getContext('2d');
+    }
+
+    function triggerHeadMovement() {
+      try {
+        if (window.Android && window.Android.sendWebSocketMessage) {
+          // Neutral stays at 0 degrees
+          const targetCommand = { command: 'tilt', angle: 0, id: 'neutral_tilt' };
+          window.Android.sendWebSocketMessage(JSON.stringify(targetCommand));
+        }
+      } catch (error) {
+        console.log('Head movement not available:', error);
+      }
+    }
+
+    function startAnimation() {
+      function animate() {
+        updateAnimation();
+        draw();
+        animationId = requestAnimationFrame(animate);
+        frameCount++;
+      }
+      animate();
+    }
+
+    function updateAnimation() {
+      robotExpression.animationPhase += 0.05;
+      updateBlinking();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBackground();
+      drawRobotFace();
+    }
+
+    function drawBackground() {
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      drawFloatingParticles();
+    }
+
+    function drawFloatingParticles() {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      
+      for (let i = 0; i < 20; i++) {
+        let x = (frameCount * 0.5 + i * 40) % (canvas.width + 100) - 50;
+        let y = canvas.height/2 + Math.sin(frameCount * 0.01 + i) * 100 + Math.sin(i) * 200;
+        let size = 3 + Math.sin(frameCount * 0.02 + i) * 2;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size/2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawRobotFace() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      
+      drawGlow();
+      
+      // Main face circle
+      ctx.fillStyle = '#f0f0fa';
+      ctx.strokeStyle = '#c8c8dc';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 150, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      drawNeutralEyes();
+      drawNeutralMouth();
+      
+      ctx.restore();
+    }
+
+    function drawGlow() {
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.05})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, 160 + i * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawNeutralEyes() {
+      const eyeSize = 60;
+      const eyeY = -30;
+      const eyeSpacing = 60;
+      
+      drawSingleEye(-eyeSpacing, eyeY, eyeSize, '#326496');
+      drawSingleEye(eyeSpacing, eyeY, eyeSize, '#326496');
+    }
+
+    function drawSingleEye(x, y, size, irisColor) {
+      ctx.save();
+      ctx.translate(x, y);
+      
+      // Eye white
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#969696';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, size/2, (size/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Iris
+      ctx.fillStyle = irisColor;
+      const irisSize = size * 0.6;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, irisSize/2, (irisSize/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Pupil
+      ctx.fillStyle = '#000000';
+      const pupilSize = size * 0.25;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, pupilSize/2, (pupilSize/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eye highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      const highlightSize = size * 0.15;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.1, -size * 0.1, highlightSize/2, (highlightSize/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
+
+    function drawNeutralMouth() {
+      const mouthY = 40;
+      const mouthWidth = 40;
+      
+      // Neutral straight mouth
+      ctx.strokeStyle = '#646464';
+      ctx.lineWidth = 4;
+      
+      ctx.beginPath();
+      ctx.moveTo(-mouthWidth/2, mouthY);
+      ctx.lineTo(mouthWidth/2, mouthY);
+      ctx.stroke();
+    }
+
+    function updateBlinking() {
+      robotExpression.blinkTimer++;
+      
+      if (robotExpression.blinkTimer > 180) { // Blink every 3 seconds at 60fps
+        robotExpression.isBlinking = true;
+        robotExpression.blinkTimer = 0;
+      }
+      
+      if (robotExpression.isBlinking) {
+        if (robotExpression.eyeOpenness > 0) {
+          robotExpression.eyeOpenness -= 0.3;
+        } else {
+          robotExpression.eyeOpenness += 0.3;
+          if (robotExpression.eyeOpenness >= 1.0) {
+            robotExpression.eyeOpenness = 1.0;
+            robotExpression.isBlinking = false;
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>

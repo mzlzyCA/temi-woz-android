@@ -177,6 +177,12 @@ public class TemiWebsocketServer extends WebSocketServer {
                     y = Math.max(-1, Math.min(1, y));
                     robot.skidJoy(x, y);
                     break;
+                case "setExpression":
+                    String expression = cmd.getString("expression");
+                    String expressionId = cmd.getString("id");
+                    System.out.println("TemiWebsocketServer: Received setExpression command - expression: " + expression);
+                    activity.setRobotExpression(expression, expressionId);
+                    break;
                 default:
                     System.out.println("Invalid command");
             }
@@ -196,6 +202,23 @@ public class TemiWebsocketServer extends WebSocketServer {
         ex.printStackTrace();
         if( conn != null ) {
             // some errors like port binding failed may not be assignable to a specific websocket
+        }
+    }
+
+    // 新增方法：处理来自WebView的消息
+    public void handleMessage(String message) {
+        try {
+            final JSONObject cmd = new JSONObject(message);
+            
+            // 直接处理头部控制命令
+            if (cmd.has("command") && "tilt".equals(cmd.getString("command"))) {
+                int angle = cmd.getInt("angle");
+                String id = cmd.getString("id");
+                System.out.println("TemiWebsocketServer: Received tilt command from WebView - angle: " + angle + ", id: " + id);
+                robot.tiltAngle(angle, id);
+            }
+        } catch (JSONException e) {
+            System.err.println("Error parsing WebView message: " + e.getMessage());
         }
     }
 

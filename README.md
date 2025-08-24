@@ -91,7 +91,7 @@ adb start-server
 
 Connect to Temi using WebSocket at:
 ```
-ws://YOUR_TEMI_IP_ADDRESS:8175
+ws://YOUR_TEMI_IP_ADDRESS:8176
 ```
 
 Upon successful connection, you'll receive: "Temi is ready to receive commands!"

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robot Expression Interface</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    
+    #expression-container {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    #status-bar {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-size: 12px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 10px;
+    }
+    
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 10px;
+      color: white;
+      font-size: 14px;
+      z-index: 1000;
+    }
+    
+    .emotion-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      margin: 2px;
+      transition: all 0.3s ease;
+    }
+    
+    .emotion-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .emotion-btn.active {
+      background: #FF5722;
+    }
+  </style>
+</head>
+<body>
+  <div id="expression-container">
+    <div id="status-bar">
+      <span id="connection-status">Connecting...</span>
+    </div>
+    
+    <div id="robot-canvas"></div>
+    
+    <div id="controls">
+      <div>
+        <span>Expression Mode: </span>
+        <span id="current-emotion">neutral</span>
+      </div>
+      <div>
+        <button class="emotion-btn" onclick="setEmotion('happy')">😊 Happy</button>
+        <button class="emotion-btn" onclick="setEmotion('sad')">😢 Sad</button>
+        <button class="emotion-btn" onclick="setEmotion('surprised')">😲 Surprised</button>
+        <button class="emotion-btn" onclick="setEmotion('angry')">😠 Angry</button>
+        <button class="emotion-btn" onclick="setEmotion('thinking')">🤔 Thinking</button>
+        <button class="emotion-btn" onclick="setEmotion('sleeping')">😴 Sleeping</button>
+        <button class="emotion-btn" onclick="setEmotion('neutral')">😐 Neutral</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Robot Expression System using Canvas API instead of p5.js
+    let robotExpression = {
+      currentEmotion: 'neutral',
+      transitionProgress: 1.0,
+      targetEmotion: 'neutral',
+      animationPhase: 0,
+      blinkTimer: 0,
+      isBlinking: false,
+      eyeOpenness: 1.0,
+      mouthMovement: 0,
+      connectionStatus: 'disconnected',
+      agentControlled: false
+    };
+
+    let canvas, ctx;
+    let animationId;
+    let frameCount = 0;
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      initCanvas();
+      startAnimation();
+      document.getElementById('connection-status').textContent = 'Ready';
+    });
+
+    function initCanvas() {
+      canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      canvas.style.display = 'block';
+      canvas.style.maxWidth = '100%';
+      canvas.style.maxHeight = '100%';
+      
+      const container = document.getElementById('robot-canvas');
+      container.appendChild(canvas);
+      
+      ctx = canvas.getContext('2d');
+    }
+
+    function setEmotion(emotion, fromAgent = false) {
+      robotExpression.targetEmotion = emotion;
+      robotExpression.transitionProgress = 0;
+      robotExpression.agentControlled = fromAgent;
+      
+      document.getElementById('current-emotion').textContent = emotion;
+      
+      // Update button states
+      document.querySelectorAll('.emotion-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Find and activate the clicked button
+      const clickedBtn = Array.from(document.querySelectorAll('.emotion-btn')).find(btn => 
+        btn.textContent.toLowerCase().includes(emotion.toLowerCase())
+      );
+      if (clickedBtn) {
+        clickedBtn.classList.add('active');
+      }
+      
+      // Trigger head movement based on emotion
+      triggerHeadMovement(emotion);
+    }
+
+    function triggerHeadMovement(emotion) {
+      // Send WebSocket command to control robot head tilt
+      try {
+        if (window.Android && window.Android.sendWebSocketMessage) {
+          // 先回到中立位置，然后移动到目标角度
+          performSequentialHeadMovement(emotion);
+        }
+      } catch (error) {
+        console.log('Head movement not available:', error);
+      }
+    }
+
+    function performSequentialHeadMovement(emotion) {
+      // 第1步：先移动到表情对应的角度
+      const targetCommand = getHeadMovementForEmotion(emotion);
+      window.Android.sendWebSocketMessage(JSON.stringify(targetCommand));
+      
+      // 第2步：等待500ms后回到中立位置
+      setTimeout(() => {
+        const neutralCommand = { command: 'tilt', angle: 0, id: 'return_to_neutral' };
+        window.Android.sendWebSocketMessage(JSON.stringify(neutralCommand));
+      }, 500);
+    }
+
+    function getHeadMovementForEmotion(emotion) {
+      const movements = {
+        'happy': { command: 'tilt', angle: -5, id: 'happy_tilt' },      // 轻微向上倾斜表示开心
+        'sad': { command: 'tilt', angle: 8, id: 'sad_tilt' },          // 轻微向下倾斜表示难过
+        'surprised': { command: 'tilt', angle: -8, id: 'surprised_tilt' }, // 向上倾斜表示惊讶
+        'angry': { command: 'tilt', angle: 3, id: 'angry_tilt' },      // 很轻微向下表示愤怒
+        'thinking': { command: 'tilt', angle: -3, id: 'thinking_tilt' }, // 很轻微向上表示思考
+        'sleeping': { command: 'tilt', angle: 12, id: 'sleeping_tilt' }, // 向下倾斜表示睡觉
+        'neutral': { command: 'tilt', angle: 0, id: 'neutral_tilt' }    // 中立位置
+      };
+      
+      return movements[emotion] || movements['neutral'];
+    }
+
+    function startAnimation() {
+      function animate() {
+        updateAnimation();
+        draw();
+        animationId = requestAnimationFrame(animate);
+        frameCount++;
+      }
+      animate();
+    }
+
+    function updateAnimation() {
+      robotExpression.animationPhase += 0.05;
+      
+      // Smooth emotion transition
+      if (robotExpression.transitionProgress < 1.0) {
+        robotExpression.transitionProgress += 0.02;
+        robotExpression.transitionProgress = Math.min(1.0, robotExpression.transitionProgress);
+        
+        if (robotExpression.transitionProgress >= 1.0) {
+          robotExpression.currentEmotion = robotExpression.targetEmotion;
+        }
+      }
+      
+      updateBlinking();
+    }
+
+    function draw() {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw background gradient
+      drawBackground();
+      
+      // Draw robot face
+      drawRobotFace();
+    }
+
+    function drawBackground() {
+      // Create gradient
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Add floating particles
+      drawFloatingParticles();
+    }
+
+    function drawFloatingParticles() {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      
+      for (let i = 0; i < 20; i++) {
+        let x = (frameCount * 0.5 + i * 40) % (canvas.width + 100) - 50;
+        let y = canvas.height/2 + Math.sin(frameCount * 0.01 + i) * 100 + Math.sin(i) * 200;
+        let size = 3 + Math.sin(frameCount * 0.02 + i) * 2;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size/2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawRobotFace() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      
+      // Draw glow effect
+      drawGlow();
+      
+      // Main face circle
+      ctx.fillStyle = '#f0f0fa';
+      ctx.strokeStyle = '#c8c8dc';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 150, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Draw eyes
+      drawEyes();
+      
+      // Draw mouth
+      drawMouth();
+      
+      // Draw emotion effects
+      drawEmotionEffects();
+      
+      ctx.restore();
+    }
+
+    function drawGlow() {
+      // Outer glow effect
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.05})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, 160 + i * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawEyes() {
+      const eyeSize = getEyeSize();
+      const eyeY = getEyeY();
+      const eyeSpacing = 60;
+      
+      // Left eye
+      drawSingleEye(-eyeSpacing, eyeY, eyeSize);
+      
+      // Right eye  
+      drawSingleEye(eyeSpacing, eyeY, eyeSize);
+    }
+
+    function drawSingleEye(x, y, size) {
+      ctx.save();
+      ctx.translate(x, y);
+      
+      // Eye white
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#969696';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, size/2, (size/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Iris
+      const irisColor = getIrisColor();
+      ctx.fillStyle = irisColor;
+      const irisSize = size * 0.6;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, irisSize/2, (irisSize/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Pupil
+      ctx.fillStyle = '#000000';
+      const pupilSize = size * 0.25;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, pupilSize/2, (pupilSize/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eye highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      const highlightSize = size * 0.15;
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.1, -size * 0.1, highlightSize/2, (highlightSize/2) * robotExpression.eyeOpenness, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
+
+    function drawMouth() {
+      const mouthY = 40;
+      const mouthWidth = getMouthWidth();
+      const mouthHeight = getMouthHeight();
+      const mouthCurve = getMouthCurve();
+      
+      ctx.strokeStyle = '#646464';
+      ctx.lineWidth = 4;
+      
+      if (robotExpression.currentEmotion === 'surprised') {
+        // Surprised mouth (oval)
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.ellipse(0, mouthY, mouthWidth/2, mouthHeight/2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (robotExpression.currentEmotion === 'sleeping') {
+        // Sleeping mouth (small line)
+        ctx.beginPath();
+        ctx.moveTo(-10, mouthY);
+        ctx.lineTo(10, mouthY);
+        ctx.stroke();
+      } else {
+        // Curved mouth
+        ctx.beginPath();
+        ctx.moveTo(-mouthWidth/2, mouthY);
+        ctx.quadraticCurveTo(0, mouthY + mouthCurve, mouthWidth/2, mouthY);
+        ctx.stroke();
+      }
+    }
+
+    function drawEmotionEffects() {
+      switch (robotExpression.currentEmotion) {
+        case 'angry':
+          drawAngerEffects();
+          break;
+        case 'thinking':
+          drawThinkingEffects();
+          break;
+        case 'happy':
+          drawHappyEffects();
+          break;
+      }
+    }
+
+    function drawAngerEffects() {
+      // Angry eyebrows
+      ctx.strokeStyle = '#c83232';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(-80, -60);
+      ctx.lineTo(-40, -80);
+      ctx.moveTo(80, -60);
+      ctx.lineTo(40, -80);
+      ctx.stroke();
+      
+      // Steam effect
+      ctx.fillStyle = 'rgba(255, 100, 100, 0.4)';
+      for (let i = 0; i < 3; i++) {
+        let steamX = -120 + i * 120;
+        let steamY = -120 + Math.sin(frameCount * 0.1 + i) * 10;
+        ctx.beginPath();
+        ctx.ellipse(steamX, steamY, 4, 7.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawThinkingEffects() {
+      // Thought bubbles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      
+      const bubbles = [
+        {x: 80, y: -100, size: 12},
+        {x: 110, y: -120, size: 18},
+        {x: 140, y: -140, size: 25}
+      ];
+      
+      bubbles.forEach((bubble, index) => {
+        let y = bubble.y + Math.sin(frameCount * 0.05 + index) * 3;
+        ctx.beginPath();
+        ctx.arc(bubble.x, y, bubble.size/2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawHappyEffects() {
+      // Sparkle effects
+      ctx.fillStyle = 'rgba(255, 255, 0, 0.6)';
+      
+      for (let i = 0; i < 8; i++) {
+        let angle = (frameCount * 0.02 + i * Math.PI/4);
+        let x = Math.cos(angle) * 180;
+        let y = Math.sin(angle) * 180;
+        let size = 4 + Math.sin(frameCount * 0.1 + i) * 2;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        
+        // Draw sparkle shape
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo(size*0.3, 0);
+        ctx.lineTo(0, size);
+        ctx.lineTo(-size*0.3, 0);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+      }
+    }
+
+    function updateBlinking() {
+      robotExpression.blinkTimer++;
+      
+      if (robotExpression.blinkTimer > 180) { // Blink every 3 seconds at 60fps
+        robotExpression.isBlinking = true;
+        robotExpression.blinkTimer = 0;
+      }
+      
+      if (robotExpression.isBlinking) {
+        if (robotExpression.eyeOpenness > 0) {
+          robotExpression.eyeOpenness -= 0.3;
+        } else {
+          robotExpression.eyeOpenness += 0.3;
+          if (robotExpression.eyeOpenness >= 1.0) {
+            robotExpression.eyeOpenness = 1.0;
+            robotExpression.isBlinking = false;
+          }
+        }
+      }
+    }
+
+    // Emotion-specific parameter functions
+    function getEyeSize() {
+      switch (robotExpression.currentEmotion) {
+        case 'surprised': return 80;
+        case 'angry': return 45;
+        case 'sleeping': return 60;
+        case 'sad': return 55;
+        default: return 60;
+      }
+    }
+
+    function getEyeY() {
+      switch (robotExpression.currentEmotion) {
+        case 'sad': return -15;
+        case 'sleeping': return -10;
+        default: return -30;
+      }
+    }
+
+    function getIrisColor() {
+      switch (robotExpression.currentEmotion) {
+        case 'angry': return '#c83232';
+        case 'happy': return '#329632';
+        case 'sad': return '#323296';
+        case 'thinking': return '#9664c8';
+        default: return '#326496';
+      }
+    }
+
+    function getMouthWidth() {
+      switch (robotExpression.currentEmotion) {
+        case 'surprised': return 30;
+        case 'happy': return 80;
+        case 'sad': return 60;
+        default: return 40;
+      }
+    }
+
+    function getMouthHeight() {
+      switch (robotExpression.currentEmotion) {
+        case 'surprised': return 40;
+        default: return 20;
+      }
+    }
+
+    function getMouthCurve() {
+      switch (robotExpression.currentEmotion) {
+        case 'happy': return -30;
+        case 'sad': return 30;
+        case 'angry': return 20;
+        default: return 0;
+      }
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      // Canvas will scale with CSS
+    });
+  </script>
+</body>
+</html>

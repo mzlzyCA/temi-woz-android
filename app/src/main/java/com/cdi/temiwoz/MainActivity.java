@@ -16,6 +16,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.JavascriptInterface;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -73,15 +74,17 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
         setContentView(R.layout.activity_main);
         Log.d(TAG, "onCreate: Starting application");
 
-        // 检查并请求权限
-        checkPermissions();
+        // 检查并请求权限 - 已注释，默认允许所有权限
+        // checkPermissions();
 
         // 初始化WebView
         webView = findViewById(R.id.webview);
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
-        // 修改这行，加载本地资源
-        webView.loadUrl("file:///android_asset/web/index.html");
+        // 添加JavaScript接口以支持头部控制
+        webView.addJavascriptInterface(new WebViewInterface(), "Android");
+        // 修改这行，默认加载中性表情
+        webView.loadUrl("file:///android_asset/web/face_neutral.html");
         
         // 摄像头相关初始化代码保留但默认不启动
         surfaceView = findViewById(R.id.camera_preview);
@@ -97,6 +100,8 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
         cameraIndicator = findViewById(R.id.camera_indicator);
     }
 
+    // 权限检查方法已注释 - 默认允许所有权限
+    /*
     private void checkPermissions() {
         List<String> listPermissionsNeeded = new ArrayList<>();
         for (String permission : permissions) {
@@ -108,7 +113,10 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
             ActivityCompat.requestPermissions(this, listPermissionsNeeded.toArray(new String[0]), REQUEST_PERMISSIONS);
         }
     }
+    */
 
+    // 权限请求结果处理方法已注释 - 默认允许所有权限
+    /*
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -140,7 +148,10 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
             }
         }
     }
+    */
 
+    // 权限对话框方法已注释 - 默认允许所有权限
+    /*
     private void showDialogOK(String message, DialogInterface.OnClickListener okListener) {
         new AlertDialog.Builder(this)
                 .setMessage(message)
@@ -149,6 +160,7 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
                 .create()
                 .show();
     }
+    */
 
     @Override
     protected void onResume() {
@@ -158,7 +170,7 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
         robot.showTopBar();
 
         // Add WebSocket server
-        int port = 8175;
+        int port = 8176;
         try {
             server = new TemiWebsocketServer(port);
             Log.d(TAG, "onResume: WebSocket server created on port " + port);
@@ -444,5 +456,88 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
     public void hideCamera() {
         surfaceView.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
+    }
+
+    // 表情切换方法
+    public void setRobotExpression(String expression, String id) {
+        Log.d(TAG, "setRobotExpression: Changing expression to " + expression);
+        
+        runOnUiThread(() -> {
+            String htmlFile = getExpressionHtmlFile(expression);
+            webView.loadUrl("file:///android_asset/web/" + htmlFile);
+            Log.d(TAG, "setRobotExpression: Loaded " + htmlFile);
+            
+            // 发送确认消息给WebSocket客户端
+            if (server != null) {
+                try {
+                    org.json.JSONObject response = new org.json.JSONObject();
+                    response.put("id", id);
+                    response.put("status", "success");
+                    response.put("expression", expression);
+                    server.broadcast(response.toString());
+                } catch (Exception e) {
+                    Log.e(TAG, "setRobotExpression: Error sending response", e);
+                }
+            }
+        });
+    }
+
+    private String getExpressionHtmlFile(String expression) {
+        switch (expression.toLowerCase()) {
+            case "happy":
+                return "face_happy.html";
+            case "sad":
+                return "face_sad.html";
+            case "surprised":
+                return "face_surprised.html";
+            case "angry":
+                return "face_angry.html";
+            case "thinking":
+                return "face_thinking.html";
+            case "sleeping":
+                return "face_sleeping.html";
+            case "interactive":
+            case "face1":
+                return "face1.html";
+            case "neutral":
+            default:
+                return "face_neutral.html";
+        }
+    }
+
+    // JavaScript接口类，用于WebView与Android通信
+    public class WebViewInterface {
+        @JavascriptInterface
+        public void sendWebSocketMessage(String message) {
+            Log.d(TAG, "Received message from WebView: " + message);
+            try {
+                // 方案1：通过WebSocket服务器处理（当前方案，保持架构一致性）
+                if (server != null) {
+                    server.handleMessage(message);
+                } else {
+                    Log.w(TAG, "WebSocket server not available");
+                }
+                
+                // 方案2：直接处理（更简单直接）
+                // handleHeadMovementDirectly(message);
+            } catch (Exception e) {
+                Log.e(TAG, "Error handling WebView message: " + e.getMessage());
+            }
+        }
+        
+        // 直接处理头部控制的方法（备选方案）
+        private void handleHeadMovementDirectly(String message) {
+            try {
+                org.json.JSONObject cmd = new org.json.JSONObject(message);
+                if (cmd.has("command") && "tilt".equals(cmd.getString("command"))) {
+                    int angle = cmd.getInt("angle");
+                    String id = cmd.getString("id");
+                    Log.d(TAG, "Direct tilt command - angle: " + angle);
+                    robotApi.tiltAngle(angle, id);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error processing direct head movement: " + e.getMessage());
+            }
+        }
     }
 }

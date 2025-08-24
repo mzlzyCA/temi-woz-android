@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robot Sleeping Expression</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #37474f 0%, #263238 100%);
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    
+    #expression-container {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    #status-bar {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-size: 12px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="expression-container">
+    <div id="status-bar">
+      <span id="connection-status">Sleeping Mode</span>
+    </div>
+    <div id="robot-canvas"></div>
+  </div>
+
+  <script>
+    let canvas, ctx;
+    let animationId;
+    let frameCount = 0;
+    
+    const robotExpression = {
+      currentEmotion: 'sleeping',
+      animationPhase: 0,
+      blinkTimer: 0,
+      isBlinking: false,
+      eyeOpenness: 0.1
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initCanvas();
+      startAnimation();
+      triggerHeadMovement();
+    });
+
+    function initCanvas() {
+      canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      canvas.style.display = 'block';
+      canvas.style.maxWidth = '100%';
+      canvas.style.maxHeight = '100%';
+      
+      const container = document.getElementById('robot-canvas');
+      container.appendChild(canvas);
+      
+      ctx = canvas.getContext('2d');
+    }
+
+    function triggerHeadMovement() {
+      try {
+        if (window.Android && window.Android.sendWebSocketMessage) {
+          const targetCommand = { command: 'tilt', angle: 12, id: 'sleeping_tilt' };
+          window.Android.sendWebSocketMessage(JSON.stringify(targetCommand));
+          
+          setTimeout(() => {
+            const neutralCommand = { command: 'tilt', angle: 0, id: 'return_to_neutral' };
+            window.Android.sendWebSocketMessage(JSON.stringify(neutralCommand));
+          }, 2000); // Longer sleep time
+        }
+      } catch (error) {
+        console.log('Head movement not available:', error);
+      }
+    }
+
+    function startAnimation() {
+      function animate() {
+        updateAnimation();
+        draw();
+        animationId = requestAnimationFrame(animate);
+        frameCount++;
+      }
+      animate();
+    }
+
+    function updateAnimation() {
+      robotExpression.animationPhase += 0.02;
+      updateSleeping();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBackground();
+      drawRobotFace();
+    }
+
+    function drawBackground() {
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, '#37474f');
+      gradient.addColorStop(1, '#263238');
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      drawStars();
+    }
+
+    function drawStars() {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      
+      // Static stars
+      const stars = [
+        {x: 100, y: 80}, {x: 200, y: 120}, {x: 350, y: 90},
+        {x: 500, y: 110}, {x: 650, y: 70}, {x: 750, y: 130},
+        {x: 80, y: 200}, {x: 300, y: 180}, {x: 600, y: 190}
+      ];
+      
+      stars.forEach((star, index) => {
+        let twinkle = 0.3 + Math.sin(frameCount * 0.02 + index) * 0.3;
+        ctx.globalAlpha = twinkle;
+        
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw star shape
+        drawStar(star.x, star.y, 3, 2, 1.5);
+      });
+      
+      ctx.globalAlpha = 1;
+    }
+
+    function drawStar(x, y, spikes, outerRadius, innerRadius) {
+      let rot = Math.PI / 2 * 3;
+      let cx = x;
+      let cy = y;
+      let step = Math.PI / spikes;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - outerRadius);
+
+      for (let i = 0; i < spikes; i++) {
+        let x = cx + Math.cos(rot) * outerRadius;
+        let y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+      }
+
+      ctx.lineTo(cx, cy - outerRadius);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawRobotFace() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      
+      drawGlow();
+      
+      // Main face circle (dimmed for sleeping)
+      ctx.fillStyle = '#b0bec5';
+      ctx.strokeStyle = '#607d8b';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 150, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      drawSleepingEyes();
+      drawSleepingMouth();
+      drawSleepingEffects();
+      
+      ctx.restore();
+    }
+
+    function drawGlow() {
+      for (let i = 0; i < 8; i++) {
+        ctx.fillStyle = `rgba(96, 125, 139, ${0.08})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, 160 + i * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawSleepingEyes() {
+      const eyeY = -10;
+      const eyeSpacing = 60;
+      
+      // Closed eyes (just lines)
+      ctx.strokeStyle = '#455a64';
+      ctx.lineWidth = 4;
+      
+      // Left eye
+      ctx.beginPath();
+      ctx.arc(-eyeSpacing, eyeY, 25, 0, Math.PI);
+      ctx.stroke();
+      
+      // Right eye
+      ctx.beginPath();
+      ctx.arc(eyeSpacing, eyeY, 25, 0, Math.PI);
+      ctx.stroke();
+      
+      // Eyelashes
+      ctx.lineWidth = 2;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-eyeSpacing + i * 15, eyeY - 20);
+        ctx.lineTo(-eyeSpacing + i * 15, eyeY - 10);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(eyeSpacing + i * 15, eyeY - 20);
+        ctx.lineTo(eyeSpacing + i * 15, eyeY - 10);
+        ctx.stroke();
+      }
+    }
+
+    function drawSleepingMouth() {
+      const mouthY = 40;
+      
+      // Small sleeping mouth
+      ctx.strokeStyle = '#546e7a';
+      ctx.lineWidth = 2;
+      
+      ctx.beginPath();
+      ctx.moveTo(-5, mouthY);
+      ctx.lineTo(5, mouthY);
+      ctx.stroke();
+    }
+
+    function drawSleepingEffects() {
+      // Sleep "Z" letters floating
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.strokeStyle = '#90a4ae';
+      ctx.lineWidth = 2;
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      
+      const sleepZ = [
+        {x: 120, y: -80, size: 24, phase: 0},
+        {x: 140, y: -110, size: 20, phase: 1},
+        {x: 160, y: -135, size: 16, phase: 2}
+      ];
+      
+      sleepZ.forEach((z, index) => {
+        let y = z.y + Math.sin(frameCount * 0.02 + z.phase) * 8;
+        let alpha = 0.7 + Math.sin(frameCount * 0.03 + z.phase) * 0.3;
+        
+        ctx.globalAlpha = alpha;
+        ctx.font = `bold ${z.size}px Arial`;
+        ctx.fillText('Z', z.x, y);
+        ctx.strokeText('Z', z.x, y);
+      });
+      
+      ctx.globalAlpha = 1;
+      
+      // Breathing effect (gentle rise and fall of the face)
+      let breathingOffset = Math.sin(frameCount * 0.01) * 2;
+      ctx.translate(0, breathingOffset);
+    }
+
+    function updateSleeping() {
+      // Very slow "breathing" animation
+      robotExpression.eyeOpenness = 0.1 + Math.sin(frameCount * 0.008) * 0.05;
+    }
+  </script>
+</body>
+</html>
