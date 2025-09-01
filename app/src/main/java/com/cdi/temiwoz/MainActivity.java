@@ -84,7 +84,7 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
         // 添加JavaScript接口以支持头部控制
         webView.addJavascriptInterface(new WebViewInterface(), "Android");
         // 修改这行，默认加载中性表情
-        webView.loadUrl("file:///android_asset/web/face_neutral.html");
+        webView.loadUrl("file:///android_asset/web/face_1.html");
         
         // 摄像头相关初始化代码保留但默认不启动
         surfaceView = findViewById(R.id.camera_preview);
@@ -500,6 +500,12 @@ public class MainActivity extends AppCompatActivity implements OnRobotReadyListe
             case "face1":
                 return "face1.html";
             case "neutral":
+            case "1":
+                return "face_1.html";
+            case "2":
+                return "face_2.html";
+            case "3":
+                return "face_3.html";
             default:
                 return "face_neutral.html";
         }
